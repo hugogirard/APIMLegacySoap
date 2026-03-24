@@ -1,0 +1,7 @@
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\bin\Debug\SoapClient.exe.config
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\bin\Debug\SoapClient.exe
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\bin\Debug\SoapClient.pdb
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\obj\Debug\SoapClient.csproj.AssemblyReference.cache
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\obj\Debug\SoapClient.csproj.CoreCompileInputs.cache
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\obj\Debug\SoapClient.exe
+C:\github\APIMLegacySoap\src\SoapClient\SoapClient\obj\Debug\SoapClient.pdb
