@@ -60,7 +60,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
 }
 
 // deploy the conferenceAPI app first, as it is required for the APIM deployment
-// module conferenceAPI 'conferenceAPI.bicep' = {
+// module conferenceAPI 'modules/conferenceAPI.bicep' = {
 //   scope: rg
 //   name: 'conferenceAPI'
 //   params: {
@@ -70,7 +70,16 @@ resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
 //   }
 // }
 
-module apim 'apimdeploy.bicep' = {
+module storage 'modules/storage/storage.bicep' = {
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    resourceName: 'str${suffix}'
+  }
+}
+
+module apim 'modules/apim/apimdeploy.bicep' = {
   name: 'apim'
   scope: rg
   params: {
@@ -83,4 +92,15 @@ module apim 'apimdeploy.bicep' = {
   }
 }
 
-//output AZURE_RESOURCE_CONFERENCE_API_URL string = conferenceAPI.outputs.WebAppURL
+module soapapi 'modules/web/soapserver.bicep' = {
+  scope: rg
+  params: {
+    location: location
+    suffix: suffix
+  }
+}
+
+output resourceGroupName string = rg.name
+output webAppName string = soapapi.outputs.webAppResourceName
+output storageResourceName string = storage.outputs.storageResourceName
+output containerName string = storage.outputs.containerName

@@ -1,6 +1,9 @@
 .azure
 .vs/
 /.vs
-/ConferenceAPI/bin
-/ConferenceAPI/obj
-/ConferenceAPI/Properties
+/BankService/bin
+/BankService/obj
+/BankService/Properties
+params
+packages
+obj
