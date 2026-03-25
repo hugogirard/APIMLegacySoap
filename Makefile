@@ -46,13 +46,16 @@ upload-wsdl: ## Upload the WSDL file to the storage container
 	$(eval RG := $(shell jq -r '.resourceGroupName.value' params))
 	$(eval STORAGE := $(shell jq -r '.storageResourceName.value' params))
 	$(eval CONTAINER := $(shell jq -r '.containerName.value' params))
+	$(eval APIM_GW := $(shell jq -r '.apimGatewayHostName.value' params | sed 's|https://||'))
+	sed 's/{{domain_name}}/$(APIM_GW)/g' $(INFRA_DIR)/modules/web/service.wsdl > /tmp/service.wsdl
 	PYTHONWARNINGS=ignore az storage blob upload \
 		--account-name $(STORAGE) \
 		--container-name $(CONTAINER) \
 		--name service.wsdl \
-		--file $(INFRA_DIR)/modules/web/service.wsdl \
+		--file /tmp/service.wsdl \
 		--overwrite \
 		--auth-mode login
+	rm -f /tmp/service.wsdl
 
 destroy: ## Delete the resource group created by the deployment
 	az group delete --name rg-$(ENVIRONMENT_NAME) --yes --no-wait

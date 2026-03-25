@@ -9,6 +9,9 @@ param publisherName string
 resource apimService 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
   name: apimServiceName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   sku: {
     name: apimSku
     capacity: 1
@@ -22,3 +25,7 @@ resource apimService 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
     developerPortalStatus: 'Enabled'
   }
 }
+
+output apimPrincipalIdentityId string = apimService.identity.principalId
+output resourceName string = apimService.name
+output gatewayHostName string = apimService.properties.gatewayUrl

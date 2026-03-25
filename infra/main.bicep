@@ -79,7 +79,7 @@ module storage 'modules/storage/storage.bicep' = {
   }
 }
 
-module apim 'modules/apim/apimdeploy.bicep' = {
+module apim 'modules/apim/apim.bicep' = {
   name: 'apim'
   scope: rg
   params: {
@@ -100,7 +100,25 @@ module soapapi 'modules/web/soapserver.bicep' = {
   }
 }
 
+module soapApiDef 'modules/apim/soap.bicep' = {
+  scope: rg
+  params: {
+    azureApimResourceName: apim.outputs.resourceName
+    storageResourceName: storage.outputs.storageResourceName
+  }
+}
+
+module rbac 'modules/rbac/storage.bicep' = {
+  scope: rg
+  params: {
+    principalId: apim.outputs.apimPrincipalIdentityId
+    storageResourceName: storage.outputs.storageResourceName
+  }
+}
+
 output resourceGroupName string = rg.name
 output webAppName string = soapapi.outputs.webAppResourceName
 output storageResourceName string = storage.outputs.storageResourceName
 output containerName string = storage.outputs.containerName
+output webAppHostName string = soapapi.outputs.hostName
+output apimGatewayHostName string = apim.outputs.gatewayHostName

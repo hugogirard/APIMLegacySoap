@@ -1,0 +1,33 @@
+<policies>
+    <inbound>
+        <base />
+        <!-- Get the WSDL definition using the Managed Identity of the APIM -->
+        <send-request mode="new" timeout="20" response-variable-name="blobdata" ignore-error="false">
+            <set-url>https://{{storage_name}}.blob.core.windows.net/wsdl/service.wsdl</set-url>
+            <set-method>GET</set-method>
+            <set-header name="x-ms-version" exists-action="override">
+                <value>2019-07-07</value>
+            </set-header>
+            <authentication-managed-identity resource="https://storage.azure.com" />
+        </send-request>
+        <return-response>
+            <set-status code="200" reason="OK" />
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/xml</value>
+            </set-header>
+            <set-body>@{
+                string wsdlContent = ((IResponse)context.Variables["blobdata"]).Body.As<string>();                
+                return wsdlContent.ToString();
+            }</set-body>
+        </return-response>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

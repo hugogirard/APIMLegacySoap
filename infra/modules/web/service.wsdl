@@ -178,7 +178,7 @@
 
   <wsdl:service name="BankService">
     <wsdl:port name="BasicHttpsBinding_IBankService" binding="tns:BasicHttpsBinding_IBankService">
-      <soap:address location="https://__{{domain_name}}/Service.svc"/>
+      <soap:address location="https://{{domain_name}}/Service.svc"/>
     </wsdl:port>
   </wsdl:service>
 

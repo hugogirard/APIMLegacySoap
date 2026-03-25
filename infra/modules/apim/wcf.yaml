@@ -1,0 +1,45 @@
+openapi: 3.0.1
+info:
+  title: API for WSDLs
+  description: Expose WSDL for BankService
+  version: "1.0"
+servers:
+  - url: https://{{domain}}
+paths:
+  /BankService.svc:
+    get:
+      tags:
+        - bank
+        - wsdl
+      summary: Expose WSDL for BankService
+      description: Expose ?wsdl and ?singleWsdl urls for BankService
+      operationId: expose-wsdl
+      parameters:
+        - name: wsdl
+          in: query
+          required: false
+          allowEmptyValue: true
+          schema:
+            type: string
+        - name: singleWsdl
+          in: query
+          required: false
+          allowEmptyValue: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WSDL document for BankService
+components:
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      name: Ocp-Apim-Subscription-Key
+      in: header
+    apiKeyQuery:
+      type: apiKey
+      name: subscription-key
+      in: query
+security:
+  - apiKeyHeader: []
+  - apiKeyQuery: []
