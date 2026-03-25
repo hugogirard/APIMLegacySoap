@@ -50,7 +50,6 @@ var tags = {
   SecurityControl: 'Ignore'
 }
 
-var abbrs = loadJsonContent('./abbreviations.json')
 var suffix = uniqueString(rg.id)
 
 resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
@@ -83,12 +82,13 @@ module apim 'modules/apim/apim.bicep' = {
   name: 'apim'
   scope: rg
   params: {
-    apimServiceName: '${abbrs.apiManagementService}${suffix}'
+    apimServiceName: 'apim-${suffix}'
     location: location
     tags: tags
     apimSku: apimSku
     publisherEmail: publisherEmail
     publisherName: publisherName
+    webAppBackendEndpoint: soapapi.outputs.soapEndpoint
   }
 }
 

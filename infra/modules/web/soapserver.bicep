@@ -34,3 +34,4 @@ resource api 'Microsoft.Web/sites@2025-03-01' = {
 
 output webAppResourceName string = api.name
 output hostName string = api.properties.defaultHostName
+output soapEndpoint string = 'https://${api.properties.defaultHostName}/Service.svc'

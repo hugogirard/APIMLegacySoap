@@ -5,6 +5,7 @@ param tags object
 param apimSku string
 param publisherEmail string
 param publisherName string
+param webAppBackendEndpoint string
 
 resource apimService 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
   name: apimServiceName
@@ -23,6 +24,16 @@ resource apimService 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
     virtualNetworkType: 'None'
     publicNetworkAccess: 'Enabled'
     developerPortalStatus: 'Enabled'
+  }
+}
+
+resource symbolicname 'Microsoft.ApiManagement/service/namedValues@2025-03-01-preview' = {
+  parent: apimService
+  name: 'soap_service'
+  properties: {
+    displayName: 'soap_service'
+    secret: false
+    value: webAppBackendEndpoint
   }
 }
 

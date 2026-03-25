@@ -6,7 +6,7 @@ info:
 servers:
   - url: https://{{domain}}
 paths:
-  /BankService.svc:
+  /Service.svc:
     get:
       tags:
         - bank
