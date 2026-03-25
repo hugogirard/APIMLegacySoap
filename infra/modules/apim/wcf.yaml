@@ -30,6 +30,32 @@ paths:
       responses:
         "200":
           description: WSDL document for BankService
+    post:
+      tags:
+        - bank
+        - soap
+      summary: SOAP service endpoint for BankService
+      description: Handle SOAP requests for BankService operations
+      operationId: soap-passthrough
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: SOAP response
+          content:
+            text/xml:
+              schema:
+                type: string
+        "500":
+          description: SOAP fault
+          content:
+            text/xml:
+              schema:
+                type: string
 components:
   securitySchemes:
     apiKeyHeader:
