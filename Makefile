@@ -8,8 +8,9 @@ DEPLOYMENT_NAME    ?= main-$(shell date +%Y%m%d%H%M%S)
 INFRA_DIR          := infra
 
 SRC_DIR            := src/BankService
+SCRIPTS_DIR        := scripts
 
-.PHONY: help login validate preview deploy deploy-app destroy show
+.PHONY: help login validate preview deploy deploy-app upload-wsdl deploy-all destroy show
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -17,45 +18,20 @@ help: ## Show this help
 login: ## Login to Azure and set subscription
 	az login
 
-preview: ## Run what-if to preview changes
-	az deployment sub what-if \
-		--name $(DEPLOYMENT_NAME) \
-		--location $(LOCATION) \
-		--template-file $(INFRA_DIR)/main.bicep \
-		--parameters $(INFRA_DIR)/main.bicepparam
+deploy-all: ## Deploy infrastructure, upload WSDL, and deploy app (full deployment)
+	@DEPLOYMENT_NAME=$(DEPLOYMENT_NAME) LOCATION=$(LOCATION) INFRA_DIR=$(INFRA_DIR) SRC_DIR=$(SRC_DIR) $(SCRIPTS_DIR)/deploy-all.sh
 
 deploy: ## Deploy infrastructure via main.bicep and save outputs to params
-	az deployment sub create \
-		--name $(DEPLOYMENT_NAME) \
-		--location $(LOCATION) \
-		--template-file $(INFRA_DIR)/main.bicep \
-		--parameters $(INFRA_DIR)/main.bicepparam \
-		--query properties.outputs -o json > params
+	@DEPLOYMENT_NAME=$(DEPLOYMENT_NAME) LOCATION=$(LOCATION) INFRA_DIR=$(INFRA_DIR) $(SCRIPTS_DIR)/deploy.sh
 
 show: ## Show the latest deployment outputs
 	@cat params
 
 deploy-app: ## Deploy the SOAP web app using outputs from params
-	$(eval RG := $(shell jq -r '.resourceGroupName.value' params))
-	$(eval WEBAPP := $(shell jq -r '.webAppName.value' params))
-	cd $(SRC_DIR) && zip -r ../../app.zip .
-	az webapp deploy --resource-group $(RG) --name $(WEBAPP) --src-path app.zip --type zip
-	rm -f app.zip
+	@SRC_DIR=$(SRC_DIR) $(SCRIPTS_DIR)/deploy-app.sh
 
 upload-wsdl: ## Upload the WSDL file to the storage container
-	$(eval RG := $(shell jq -r '.resourceGroupName.value' params))
-	$(eval STORAGE := $(shell jq -r '.storageResourceName.value' params))
-	$(eval CONTAINER := $(shell jq -r '.containerName.value' params))
-	$(eval APIM_GW := $(shell jq -r '.apimGatewayHostName.value' params | sed 's|https://||'))
-	sed 's/{{domain_name}}/$(APIM_GW)/g' $(INFRA_DIR)/modules/web/service.wsdl > /tmp/service.wsdl
-	PYTHONWARNINGS=ignore az storage blob upload \
-		--account-name $(STORAGE) \
-		--container-name $(CONTAINER) \
-		--name service.wsdl \
-		--file /tmp/service.wsdl \
-		--overwrite \
-		--auth-mode login
-	rm -f /tmp/service.wsdl
+	@INFRA_DIR=$(INFRA_DIR) $(SCRIPTS_DIR)/upload-wsdl.sh
 
 destroy: ## Delete the resource group created by the deployment
 	az group delete --name rg-$(ENVIRONMENT_NAME) --yes --no-wait
