@@ -1,13 +1,32 @@
 # Azure API Management Policies Explained
 
-This document provides a detailed explanation of the Azure API Management (APIM) policies used in this solution and how they enable intelligent routing and WSDL serving.
+This document provides a detailed explanation of the Azure API Management (APIM) policies used in this solution and how they enable the **passthrough gateway pattern** with intelligent routing.
 
-## Overview
+## Problem & Solution Overview
 
-The APIM policies in this solution provide two key capabilities:
+### The Challenge
 
-1. **Dynamic WSDL Serving**: Fetches WSDL from Azure Blob Storage using Managed Identity
-2. **SOAP Request Passthrough**: Routes SOAP requests to the backend WCF service
+When importing SOAP services into Azure API Management, WSDLs containing **external schema references** can be problematic:
+- Schema flattening is often required but can be complex and error-prone
+- Multi-file WSDL definitions (WSDL with separate XSD files) may not import correctly
+- Legacy SOAP services may have complex schema dependencies
+
+### The Solution: APIM Passthrough with External WSDL Storage
+
+This solution implements a **passthrough gateway pattern** that avoids WSDL import complexity:
+
+1. **Store WSDL externally** in Azure Blob Storage (pre-flattened or complete with all schemas)
+2. **APIM serves WSDL dynamically** when clients request `?wsdl` (retrieves from blob storage)
+3. **APIM passes through SOAP operations** directly to the backend service (on-premises, Azure, or any endpoint)
+4. **Additional policies can be layered** on top of the passthrough (rate limiting, auth, transformation, etc.)
+
+### Key Capabilities
+
+The APIM policies in this solution provide:
+
+1. **Dynamic WSDL Serving**: Fetches WSDL from Azure Blob Storage using Managed Identity (workaround for import issues)
+2. **SOAP Request Passthrough**: Routes SOAP operations directly to the backend service without modification
+3. **Extensibility**: Foundation for adding additional policies without backend changes
 
 ## Policy File Location
 
@@ -223,12 +242,29 @@ Sets proper content type for WSDL (XML format).
 
 **When executed**: Request does NOT contain `?wsdl` parameter (normal SOAP operation call)
 
+**The Passthrough Pattern:**
+This is the core of the passthrough approach - APIM simply forwards SOAP requests to the backend without modification. The backend service remains unchanged and unaware of APIM.
+
 **Template Variable**: `{{soap_service}}`
 - Replaced with APIM named value at deployment
-- Value: `https://soap-api-{uniqueId}.azurewebsites.net`
+- **Example**: `https://soap-api-{uniqueId}.azurewebsites.net` (Azure App Service)
 - Source: Bicep parameter `webAppBackendEndpoint`
 
-**Effect**: Routes the request to the backend WCF service on Azure App Service
+**Backend Flexibility:**
+The backend can be hosted anywhere:
+- ✅ **Azure App Service** (as shown in this example)
+- ✅ **On-premises SOAP service** (via VPN, ExpressRoute, or public endpoint)
+- ✅ **Third-party SOAP service**
+- ✅ **Legacy systems** in your datacenter
+- ✅ **Any HTTPS-accessible SOAP endpoint**
+
+**Effect**: Routes the request to the backend SOAP service with zero transformation (pure passthrough)
+
+**Extensibility**: You can add additional policies before or after this passthrough:
+- Rate limiting: `<rate-limit calls="100" renewal-period="60" />`
+- Authentication: `<validate-jwt>`, `<check-header>`, etc.
+- Transformation: `<xsl-transform>`, `<set-body>`, etc.
+- Logging: `<trace>`, `<log-to-eventhub>`, etc.
 
 ### 4. Backend Section
 
@@ -278,91 +314,44 @@ Sets proper content type for WSDL (XML format).
 
 ### Flow 1: WSDL Request
 
-```
-┌──────────┐
-│  Client  │
-└────┬─────┘
-     │ GET https://apim-xxx.azure-api.net/bank?wsdl
-     ▼
-┌────────────────────┐
-│  APIM Gateway      │
-│  <inbound> policy  │
-└────┬───────────────┘
-     │ condition="Query.ContainsKey('wsdl')" → TRUE
-     ▼
-┌────────────────────┐
-│  <send-request>    │
-│  mode="new"        │
-└────┬───────────────┘
-     │ GET https://strabc123def.blob.core.windows.net/wsdl/service.wsdl
-     │ Header: x-ms-version: 2019-07-07
-     │ Auth: Managed Identity token
-     ▼
-┌────────────────────┐
-│  Blob Storage      │
-│  /wsdl/service.wsdl│
-└────┬───────────────┘
-     │ Returns WSDL XML content
-     ▼
-┌────────────────────┐
-│  <return-response> │
-│  Status: 200       │
-│  Content-Type:     │
-│  application/xml   │
-└────┬───────────────┘
-     │ WSDL XML
-     ▼
-┌──────────┐
-│  Client  │ (receives WSDL, generates client code)
-└──────────┘
+```mermaid
+sequenceDiagram
+    participant Client
+    participant APIM as APIM Gateway<br/>&lt;inbound&gt; policy
+    participant SendReq as &lt;send-request&gt;<br/>mode="new"
+    participant Blob as Blob Storage<br/>/wsdl/service.wsdl
+    participant Return as &lt;return-response&gt;
+    
+    Client->>APIM: GET /bank?wsdl
+    Note over APIM: Query.ContainsKey('wsdl') → TRUE
+    APIM->>SendReq: Execute policy
+    SendReq->>Blob: GET service.wsdl<br/>Header: x-ms-version: 2019-07-07<br/>Auth: Managed Identity
+    Blob-->>SendReq: Returns WSDL XML
+    SendReq->>Return: Store in variable
+    Return-->>Client: HTTP 200<br/>Content-Type: application/xml<br/>WSDL XML content
+    Note over Client: Generates client code
 ```
 
 ### Flow 2: SOAP Operation Request
 
-```
-┌──────────┐
-│  Client  │
-└────┬─────┘
-     │ POST https://apim-xxx.azure-api.net/bank
-     │ Content-Type: text/xml
-     │ Body: <soap:Envelope>...</soap:Envelope>
-     ▼
-┌────────────────────┐
-│  APIM Gateway      │
-│  <inbound> policy  │
-└────┬───────────────┘
-     │ condition="Query.ContainsKey('wsdl')" → FALSE
-     ▼
-┌────────────────────┐
-│  <otherwise>       │
-│  <set-backend-     │
-│   service>         │
-└────┬───────────────┘
-     │ Backend URL = {{soap_service}}
-     │             = https://soap-api-xxx.azurewebsites.net
-     ▼
-┌────────────────────┐
-│  <backend> policy  │
-└────┬───────────────┘
-     │ POST https://soap-api-xxx.azurewebsites.net/Service.svc
-     │ (forwards SOAP request)
-     ▼
-┌────────────────────┐
-│  Azure App Service │
-│  WCF SOAP Service  │
-│  BankService.svc   │
-└────┬───────────────┘
-     │ Processes SOAP request
-     │ Returns SOAP response
-     ▼
-┌────────────────────┐
-│  <outbound> policy │
-└────┬───────────────┘
-     │ Returns response as-is
-     ▼
-┌──────────┐
-│  Client  │ (receives SOAP response)
-└──────────┘
+```mermaid
+sequenceDiagram
+    participant Client
+    participant APIM as APIM Gateway<br/>&lt;inbound&gt; policy
+    participant Backend as &lt;backend&gt; policy
+    participant AppService as Azure App Service<br/>WCF SOAP Service
+    participant Outbound as &lt;outbound&gt; policy
+    
+    Client->>APIM: POST /bank<br/>Content-Type: text/xml<br/>&lt;soap:Envelope&gt;
+    Note over APIM: Query.ContainsKey('wsdl') → FALSE
+    APIM->>APIM: &lt;set-backend-service&gt;<br/>URL = {{soap_service}}
+    APIM->>Backend: Forward request
+    Backend->>AppService: POST /Service.svc<br/>SOAP request
+    Note over AppService: Process SOAP operation
+    AppService-->>Backend: SOAP response
+    Backend->>Outbound: Pass response
+    Outbound-->>Client: SOAP response (unchanged)
+    Note over Client: Receives result
 ```
 
 ## Named Values (Template Variables)
@@ -511,18 +500,23 @@ resource symbolicname 'Microsoft.ApiManagement/service/namedValues@2025-03-01-pr
 ### Test WSDL Retrieval
 
 ```bash
-# Should return WSDL XML
-curl -i "https://apim-{uniqueId}.azure-api.net/bank?wsdl"
+# Open in browser or test with curl
+echo "https://apim-{uniqueId}.azure-api.net/bank?wsdl"
 ```
+
+Expected: WSDL XML document is returned
 
 ### Test SOAP Request
 
+Use the included .NET client:
+
 ```bash
-# Should route to backend
-curl -X POST "https://apim-{uniqueId}.azure-api.net/bank" \
-  -H "Content-Type: text/xml" \
-  -d '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><GetBalance><accountNumber>12345</accountNumber></GetBalance></soap:Body></soap:Envelope>'
+# Update endpoint in Program.cs to: https://apim-{uniqueId}.azure-api.net/bank
+# Open src/SoapClient/SoapClient.sln in Visual Studio
+# Run the application and select option 1 to test GetBalance
 ```
+
+Or use any SOAP client that sends POST requests to the APIM gateway endpoint.
 
 ### Test Policy Trace (Azure Portal)
 

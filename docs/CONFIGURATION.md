@@ -618,9 +618,8 @@ Before deploying to production:
 
 ## Next Steps
 
-- **Deploy Your Configuration**: [Deployment Guide](DEPLOYMENT.md)
-- **Test Your Service**: [Client Usage Guide](CLIENT-USAGE.md)
 - **Understand Architecture**: [Azure Architecture](ARCHITECTURE.md)
+- **Review Policies**: [APIM Policies Explained](APIM-POLICIES.md)
 
 ---
 

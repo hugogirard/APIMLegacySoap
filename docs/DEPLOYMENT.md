@@ -241,8 +241,9 @@ apimGatewayHostName=https://apim-abc123def.azure-api.net
 # Get APIM gateway URL from params
 APIM_URL=$(cat params | grep apimGatewayHostName | cut -d'=' -f2)
 
-# Test WSDL retrieval
-curl -i "${APIM_URL}/bank?wsdl"
+# Test WSDL retrieval (browser or curl)
+echo "WSDL URL: ${APIM_URL}/bank?wsdl"
+# Open in browser or use: curl -i "${APIM_URL}/bank?wsdl"
 ```
 
 Expected: HTTP 200 with WSDL XML content
@@ -253,8 +254,9 @@ Expected: HTTP 200 with WSDL XML content
 # Get Web App hostname
 WEB_APP=$(cat params | grep webAppHostName | cut -d'=' -f2)
 
-# Test direct SOAP endpoint
-curl -i "https://${WEB_APP}/Service.svc?wsdl"
+# Test direct SOAP endpoint (browser or curl)
+echo "Direct WSDL: https://${WEB_APP}/Service.svc?wsdl"
+# Open in browser or use: curl -i "https://${WEB_APP}/Service.svc?wsdl"
 ```
 
 Expected: HTTP 200 with WSDL XML content
@@ -275,24 +277,45 @@ az storage blob list \
 
 Expected: `service.wsdl` listed
 
-### 5. Test SOAP Operation (Optional)
+### 5. Test SOAP Operations with .NET Client
+
+Use the included .NET console client to test all service operations:
 
 ```bash
-# Test GetBalance operation
-curl -X POST "${APIM_URL}/bank" \
-  -H "Content-Type: text/xml; charset=utf-8" \
-  -H "SOAPAction: http://tempuri.org/IBankService/GetBalance" \
-  -d '<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-  <soap:Body>
-    <tem:GetBalance>
-      <tem:accountNumber>12345</tem:accountNumber>
-    </tem:GetBalance>
-  </soap:Body>
-</soap:Envelope>'
+# Navigate to the client directory
+cd src/SoapClient/SoapClient
+
+# Update Program.cs with your APIM URL (from 'make show')
+# Line ~17: string endpointRemoteAddress = "https://apim-{uniqueId}.azure-api.net/bank";
+
+# Run the client
+dotnet run
 ```
 
-Expected: SOAP response with balance value
+**Interactive Menu:**
+
+```
+===========================================
+   Welcome to the Banking System Client   
+===========================================
+
+Please select an option:
+1. Check Balance
+2. Deposit Money
+3. Withdraw Money
+4. View Account Information
+5. Exit
+```
+
+Test each operation to verify the deployment:
+- **GetBalance**: Enter account "12345" to check balance
+- **Deposit**: Add funds and verify new balance
+- **Withdraw**: Remove funds and verify new balance
+- **GetAccountInfo**: View complete account details
+
+Expected: Successful responses for all operations
+
+> See [Client Usage Guide](CLIENT-USAGE.md) for detailed client integration examples.
 
 ## Troubleshooting
 

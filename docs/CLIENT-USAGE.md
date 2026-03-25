@@ -72,6 +72,113 @@ The Bank Service provides the following operations:
 
 ## Client Implementation Examples
 
+> **⭐ Quick Start**: Use the included [.NET Console Client](#included-net-console-client-recommended-for-testing) for immediate testing of all service operations.
+
+### Included .NET Console Client (Recommended for Testing)
+
+The solution includes a complete **interactive .NET client** for testing all service operations.
+
+**Location**: `src/SoapClient/SoapClient/`
+
+#### Quick Start
+
+1. **Get your APIM Gateway URL**:
+   ```bash
+   make show
+   # Output: apimGatewayHostName=https://apim-{uniqueId}.azure-api.net
+   ```
+
+2. **Update endpoint** in `Program.cs` (line ~17):
+   ```csharp
+   string endpointRemoteAddress = "https://apim-{uniqueId}.azure-api.net/bank";
+   ```
+
+3. **Run the client** in Visual Studio:
+   - Open `src/SoapClient/SoapClient.sln`
+   - Build the solution (F6)
+   - Run (F5 or Ctrl+F5)
+
+#### Features
+
+Interactive menu-driven interface:
+
+```
+===========================================
+   Welcome to the Banking System Client   
+===========================================
+
+Please select an option:
+1. Check Balance
+2. Deposit Money
+3. Withdraw Money
+4. View Account Information
+5. Exit
+
+Enter your choice (1-5): 
+```
+
+#### Sample Usage
+
+**Check Balance:**
+```
+Enter your choice (1-5): 1
+Enter Account Number: 12345
+
+Current Balance: $1,234.56
+```
+
+**Deposit:**
+```
+Enter your choice (1-5): 2
+Enter Account Number: 12345
+Enter Deposit Amount: $100
+
+Deposit successful! $100.00 has been added to your account.
+New Balance: $1,334.56
+```
+
+**View Account Info:**
+```
+Enter your choice (1-5): 4
+Enter Account Number: 12345
+
+===========================================
+          Account Information
+===========================================
+Account Number:    12345
+Account Holder:    John Doe
+Account Type:      Checking
+Current Balance:   $1,334.56
+===========================================
+```
+
+#### How It Works
+
+The client uses WCF Service Reference:
+
+```csharp
+using SoapClient.Bank;
+
+string endpointConfigurationName = "BasicHttpsBinding_IBankService";
+string endpointRemoteAddress = "https://apim-{uniqueId}.azure-api.net/bank";
+
+using (var client = new BankServiceClient(endpointConfigurationName, endpointRemoteAddress))
+{
+    // Check balance
+    decimal balance = client.GetBalance("12345");
+    
+    // Deposit
+    bool success = client.Deposit("12345", 100.00m);
+    
+    // Get account info
+    AccountInfo info = client.GetAccountInfo("12345");
+}
+```
+
+> **Tip**: This client demonstrates best practices for consuming the SOAP service through APIM. Use it as a reference for your own implementation.
+
+---
+
 ### .NET Framework (WCF Service Reference)
 
 #### Option 1: Visual Studio Service Reference (Recommended)
@@ -412,57 +519,6 @@ catch {
 }
 ```
 
-### cURL (Testing)
-
-#### GetBalance Operation
-
-```bash
-curl -X POST "https://apim-{uniqueId}.azure-api.net/bank" \
-  -H "Content-Type: text/xml; charset=utf-8" \
-  -H "SOAPAction: http://tempuri.org/IBankService/GetBalance" \
-  -d '<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-  <soap:Body>
-    <tem:GetBalance>
-      <tem:accountNumber>12345</tem:accountNumber>
-    </tem:GetBalance>
-  </soap:Body>
-</soap:Envelope>'
-```
-
-#### Deposit Operation
-
-```bash
-curl -X POST "https://apim-{uniqueId}.azure-api.net/bank" \
-  -H "Content-Type: text/xml; charset=utf-8" \
-  -H "SOAPAction: http://tempuri.org/IBankService/Deposit" \
-  -d '<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-  <soap:Body>
-    <tem:Deposit>
-      <tem:accountNumber>12345</tem:accountNumber>
-      <tem:amount>100.00</tem:amount>
-    </tem:Deposit>
-  </soap:Body>
-</soap:Envelope>'
-```
-
-#### GetAccountInfo Operation
-
-```bash
-curl -X POST "https://apim-{uniqueId}.azure-api.net/bank" \
-  -H "Content-Type: text/xml; charset=utf-8" \
-  -H "SOAPAction: http://tempuri.org/IBankService/GetAccountInfo" \
-  -d '<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-  <soap:Body>
-    <tem:GetAccountInfo>
-      <tem:accountNumber>12345</tem:accountNumber>
-    </tem:GetAccountInfo>
-  </soap:Body>
-</soap:Envelope>'
-```
-
 ## Testing with SOAP UI
 
 ### Setup
@@ -547,9 +603,12 @@ session.verify = False
 
 **Solution**:
 ```bash
-# Verify APIM endpoint
-curl -i "https://apim-{uniqueId}.azure-api.net/bank?wsdl"
+# Verify APIM endpoint returns WSDL
+# Test in browser or: curl -i "https://apim-{uniqueId}.azure-api.net/bank?wsdl"
 # Should return HTTP 200 with WSDL
+
+# Then test with the .NET client
+# Open src/SoapClient/SoapClient.sln in Visual Studio and run
 ```
 
 ### Issue 4: WSDL Returns Incorrect URLs
@@ -651,10 +710,5 @@ View detailed traces in Application Insights.
 
 ## Next Steps
 
-- **Customize Configuration**: See [Configuration Guide](CONFIGURATION.md)
 - **Understand Policies**: See [APIM Policies Explained](APIM-POLICIES.md)
-- **Deploy Changes**: See [Deployment Guide](DEPLOYMENT.md)
-
----
-
-**Need Help?** Check the [Architecture](ARCHITECTURE.md) to understand the complete flow.
+- **Review Architecture**: See [Architecture](ARCHITECTURE.md) to understand the complete flow.

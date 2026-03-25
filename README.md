@@ -1,27 +1,46 @@
 # Legacy SOAP WCF Service on Azure with API Management
 
-This solution demonstrates how to modernize and expose a legacy WCF SOAP service through Azure API Management (APIM), enabling secure access, WSDL hosting, and seamless integration with modern applications.
+This solution demonstrates a **passthrough gateway pattern** using Azure API Management (APIM) to protect and expose legacy SOAP APIs without modifying the underlying service.
 
-## 🎯 What This Solution Provides
+## 🎯 Problem Statement
 
-- **Legacy WCF SOAP Service** hosted on Azure App Service
-- **Azure API Management** as a secure gateway for the SOAP service
+When importing SOAP services into Azure API Management, you may encounter challenges with WSDLs that contain external schema references. Flattening these schemas can be complex and error-prone. Additionally, you may want to:
+
+- Protect legacy SOAP services (on-premises or cloud-hosted) without code changes
+- Apply modern API management policies (rate limiting, authentication, monitoring) on top of existing SOAP services
+- Provide WSDL discovery without exposing backend infrastructure
+- Enable a passthrough approach where APIM acts purely as a secure gateway
+
+## 💡 Solution Approach
+
+This solution demonstrates the **APIM passthrough pattern** with intelligent WSDL serving:
+
+1. **WSDL Storage Workaround**: Instead of importing complex WSDLs with external schemas into APIM, store the WSDL in Azure Blob Storage
+2. **Dynamic WSDL Serving**: APIM policies detect `?wsdl` requests and serve the WSDL from blob storage using Managed Identity
+3. **SOAP Passthrough**: All SOAP operation requests pass through APIM directly to the backend service (Azure App Service, on-premises, or any SOAP endpoint)
+4. **Extensible Policies**: Add additional policies on top of the passthrough (rate limiting, caching, transformation, authentication) without touching the backend
+
+**Key Benefits:**
+- ✅ No backend code changes required
+- ✅ Works with complex WSDLs containing external schemas
+- ✅ Backend can be hosted anywhere (Azure, on-premises, third-party)
+- ✅ Apply modern API management capabilities to legacy services
+- ✅ Centralized monitoring and governance
+
+## 🏗️ What This Solution Provides
+
+- **Legacy WCF SOAP Service** hosted on Azure App Service (can be adapted for on-premises)
+- **Azure API Management** as a passthrough gateway with intelligent routing
 - **WSDL Hosting** via Azure Blob Storage with managed identity authentication
+- **Custom APIM Policies** for WSDL serving and SOAP passthrough
 - **Complete Infrastructure as Code** using Bicep
 - **Automated Deployment** with simple Makefile commands
 
 ## 📚 Documentation
 
-### Quick Start
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Step-by-step deployment instructions using `make deploy-all`
-
 ### Architecture & Design
 - **[Azure Architecture](docs/ARCHITECTURE.md)** - Complete overview of all Azure resources created
 - **[APIM Policies Explained](docs/APIM-POLICIES.md)** - How the API Management policies work
-
-### Configuration & Usage
-- **[Configuration Guide](docs/CONFIGURATION.md)** - How to customize environment name, location, and URLs
-- **[Client Usage Guide](docs/CLIENT-USAGE.md)** - How to consume the WCF service through APIM
 
 ## 🚀 Quick Deployment
 
@@ -36,7 +55,7 @@ This single command will:
 2. Upload the WSDL definition to blob storage
 3. Deploy the WCF SOAP service application
 
-> See the [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions and alternative deployment options.
+> This is the recommended deployment method. All Azure infrastructure, WSDL storage, and application code are deployed automatically.
 
 ## 🏗️ Azure Resources Created
 
@@ -44,9 +63,9 @@ This solution deploys the following Azure resources:
 
 | Resource Type | Purpose |
 |--------------|---------|
-| **Azure API Management** | Acts as a secure gateway and WSDL proxy for the SOAP service |
-| **Azure App Service** | Hosts the legacy WCF SOAP service |
-| **Azure Blob Storage** | Stores and serves the WSDL definition file |
+| **Azure API Management** | Passthrough gateway with intelligent routing and WSDL serving |
+| **Azure App Service** | Hosts the legacy WCF SOAP service (can be on-premises in your scenario) |
+| **Azure Blob Storage** | Stores and serves the WSDL definition file (workaround for complex schemas) |
 | **Managed Identity** | Enables secure authentication between APIM and Storage |
 | **RBAC Assignments** | Grants APIM permissions to access blob storage |
 
@@ -90,9 +109,8 @@ After deployment, you'll have access to:
 
 - **APIM Gateway URL**: `https://apim-{uniqueid}.azure-api.net/bank`
 - **WSDL Endpoint**: `https://apim-{uniqueid}.azure-api.net/bank?wsdl`
-- **Direct SOAP Service**: `https://soap-api-{uniqueid}.azurewebsites.net/Service.svc`
 
-> The actual URLs are displayed after deployment. See [Client Usage Guide](docs/CLIENT-USAGE.md) for consumption examples.
+> **Always use the APIM Gateway URL** for all client connections. The actual URLs are displayed after deployment with `make show`.
 
 ## 🎯 Bank Service API
 
@@ -102,6 +120,44 @@ The solution includes a sample Bank Service with the following operations:
 - `Deposit(accountNumber, amount)` - Deposit funds
 - `Withdraw(accountNumber, amount)` - Withdraw funds
 - `GetAccountInfo(accountNumber)` - Get complete account information
+
+### Testing the Service
+
+A complete .NET console client is included in `src/SoapClient/SoapClient/` for testing all service operations.
+
+**To use the client:**
+
+1. **Get your APIM Gateway URL** from deployment outputs:
+   ```bash
+   make show
+   # Look for: apimGatewayHostName=https://apim-{uniqueId}.azure-api.net
+   ```
+
+2. **Update the endpoint** in `src/SoapClient/SoapClient/Program.cs`:
+   ```csharp
+   string endpointRemoteAddress = "https://apim-{uniqueId}.azure-api.net/bank";
+   ```
+
+3. **Open and run** the client in Visual Studio:
+   - Open `src/SoapClient/SoapClient.sln` in Visual Studio
+   - Build the solution (F6)
+   - Run the application (F5 or Ctrl+F5)
+
+4. **Use the interactive menu** to test operations:
+   ```
+   ===========================================
+      Welcome to the Banking System Client   
+   ===========================================
+
+   Please select an option:
+   1. Check Balance
+   2. Deposit Money
+   3. Withdraw Money
+   4. View Account Information
+   5. Exit
+   ```
+
+See [APIM Policies](docs/APIM-POLICIES.md) to understand how the passthrough gateway works.
 
 ## 📖 Project Structure
 
@@ -122,24 +178,27 @@ The solution includes a sample Bank Service with the following operations:
 └── docs/                      # Documentation (created by this README)
 ```
 
-## 🔐 Security Features
+## 🔐 Security & Policy Features
 
+This solution demonstrates a **baseline passthrough pattern** that can be extended with additional APIM policies:
+
+**Implemented:**
 - **Managed Identity**: APIM uses system-assigned managed identity for secure storage access
 - **HTTPS Only**: All endpoints enforce HTTPS
 - **RBAC**: Fine-grained access control using Azure role assignments
-- **No Subscription Keys Required**: Simplified access for legacy SOAP clients
+- **Intelligent Routing**: Dynamic routing based on request type (WSDL vs SOAP operations)
 
-## 📞 Support
+**Extensible - Add Policies On Top:**
+- **Rate Limiting**: Throttle requests per consumer or globally
+- **Authentication**: Add API keys, OAuth, JWT validation
+- **IP Filtering**: Whitelist/blacklist IP addresses
+- **Request/Response Transformation**: Modify SOAP messages in transit
+- **Caching**: Cache WSDL or SOAP responses
+- **Logging & Monitoring**: Send telemetry to Application Insights
+- **Content Validation**: Validate SOAP messages against schema
 
-For issues or questions:
-1. Check the [Configuration Guide](docs/CONFIGURATION.md) for common customization scenarios
-2. Review [APIM Policies](docs/APIM-POLICIES.md) to understand the request flow
-3. Consult the [Client Usage Guide](docs/CLIENT-USAGE.md) for integration examples
+> See [APIM Policies Explained](docs/APIM-POLICIES.md) for details on the current passthrough implementation and how to add additional policies.
 
-## 📄 License
+## � License
 
 See [LICENSE](LICENSE) file for details.
-
----
-
-**Next Steps**: Start with the [Deployment Guide](docs/DEPLOYMENT.md) to get your solution running in Azure.
